@@ -1,0 +1,99 @@
+---
+title: "RNA-Seq Tutorial"
+author: "W. Evan Johnson"
+date: "10/10/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+```{r setup, include=FALSE}
+setwd("~/teaching/tutorials/rnaseq_2019_10/")
+```
+
+#Using Rsubread to do Alignment
+The following userguide will be helpful for you: 
+
+http://bioinf.wehi.edu.au/subread-package/SubreadUsersGuide.pdf
+
+### Install Rsubread and call the library
+You only need to install it once! So I commented out the install--uncomment it for your first run!
+```{r}
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("Rsubread")
+library(Rsubread)
+```
+
+
+
+## Indexing your genome
+
+##### Abraham Lincoln: "Give me six hours to chop down a tree and I will spend the first four sharpening the axe." (4 minutes indexing the genome, 2 minutes aligning the reads)
+
+Note that you will rarely do this for human alignment. You will usually download an existing index given to you by others who have alreday done this work. You will do this often if you are aligning microbial reads, e.g. MTB or some other organism for which others have not already made your index for you.
+
+```{r}
+buildindex(basename="genome/ucsc.hg19.chr1_120-150M",reference="genome/ucsc.hg19.chr1_120-150M.fasta")
+```
+#### took me about 4.0 minutes
+
+## Aligning your reads:  
+Note that this outputs results in a .bam file and not a .sam file
+
+```{r}
+align(index="genome/ucsc.hg19.chr1_120-150M",readfile1="reads/R01_10_short500K.fq.gz",output_file="alignments/R01_10_short.bam", nthreads=4) 
+```
+#### My laptop is an Intel Core i7, which has 4 cores and 8 threads, 16GB RAM
+#### Took 15.7 minutes to align ~60M reads to the 30M bases
+#### Took 2.3 minutes to align ~6.5M reads to the 30M bases
+#### Took 0.2 minutes to align ~500K reads to the 30M bases
+
+## Output
+Note that Rsubread outputs a .bam file (bam = binary alignment map) and not a .sam file (sam = sequence alignment map). Here is some information about a .sam file: 
+
+https://en.wikipedia.org/wiki/SAM_(file_format)
+
+https://samtools.github.io/hts-specs/SAMv1.pdf
+
+To convert .sam to .bam or vice versa, a package called Rsamtools. Using Rsamtools, you can convert bam to sam as follows:
+
+```{r}
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("Rsamtools")
+suppressMessages(library(Rsamtools))
+
+asSam("alignments/R01_10_short.bam", overwrite=T) 
+
+# To convert to bam:
+#asBam("alignments/R01_10_short.bam") 
+
+```
+#### Makes a system call to the Mac terminal to generate a .sam file
+
+### Feature counts
+#### Count the number of reads aligned to each gene
+```{r}
+fCountsList = featureCounts("alignments/R01_10_short.bam", annot.ext="genome/genes.chr1_120-150M.gtf", isGTFAnnotationFile=TRUE)
+
+featureCounts = cbind(fCountsList$annotation[,1], fCountsList$counts)
+
+write.table(featureCounts, "alignments/R01_10_short.features.txt", sep="\t", col.names=FALSE, row.names=FALSE, quote=FALSE)
+
+```
+
+### SCTK
+#### Use the Single Cell Toolkit to analyze your RNA-seq data!
+```{r, eval=F}
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("singleCellTK")
+
+library(singleCellTK)
+singleCellTK()
+
+### open features_combined.txt
+### and meta_data.txt
+
+```
+
